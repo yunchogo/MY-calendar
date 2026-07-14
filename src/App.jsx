@@ -2156,16 +2156,19 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
   // (loading이 끝나 cal-wrap이 실제로 그려진 뒤 측정되도록 loading도 의존성에 포함)
   useEffect(() => {
     if (viewMode !== "month" || loading) return;
+    const el = calWrapRef.current;
+    if (!el) return;
     const measure = () => {
-      const el = calWrapRef.current;
-      if (!el) return;
       const cs = getComputedStyle(el);
       const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      setCalAvailW(Math.max(280, Math.floor(w)));
+      if (w > 0) setCalAvailW(Math.max(280, Math.floor(w))); // 레이아웃 전(0폭) 오측정 방지
     };
     measure();
+    const raf = requestAnimationFrame(measure); // 레이아웃 확정 다음 프레임에 다시(모바일 스택 전환 등)
+    const ro = new ResizeObserver(measure);     // cal-wrap 폭이 실제로 잡히면 정확히 재측정
+    ro.observe(el);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener("resize", measure); };
   }, [viewMode, loading]);
 
   useEffect(() => { localStorage.setItem("bboggl_cal_size", String(calSizePct)); }, [calSizePct]);
@@ -2900,12 +2903,13 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
           .cal-name, .cal-name-input{ display:none; }
           .view-nav-stack{ flex-direction:row; align-items:center; justify-content:center; gap:14px; width:100%; }
           .month-label{ font-size:14px; min-width:0; }
-          .cal-size-ctrl{ display:none; }              /* 폭 큰 슬라이더는 모바일에서 숨김(자동으로 화면에 맞춤) */
+          /* 크기 조절 슬라이더는 모바일에서도 유지(요청) — 한 줄로 폭에 맞춤 */
+          .cal-size-ctrl{ width:100%; max-width:320px; justify-content:center; }
+          .cal-size-ctrl input[type=range]{ width:90px; }
           .topbar-right{ flex-wrap:wrap; justify-content:center; gap:6px; width:100%; }
           /* 꾸미기 패널: 화면 하단 시트처럼 띄워 항상 손이 닿게 */
           .deco-panel{ position:fixed; top:auto; bottom:10px; left:10px; right:10px; width:auto; max-height:76vh; overflow-y:auto; }
-          /* 캘린더 판: JS로 계산한 폭(renderedW)이 화면보다 넓어도 무조건 화면에 맞춰 가로 넘침 방지 */
-          .cal-board{ width:100% !important; max-width:100% !important; margin-left:0 !important; margin-right:0 !important; }
+          /* 판은 폭 정확 측정(calAvailW) + 인라인 max-width:100%로 넘침 방지 → 슬라이더로 더 줄이는 것도 가능 */
           .sticker-layer{ overflow:hidden; }   /* 화면 밖으로 삐져나간 스티커가 가로 스크롤 만들지 않게 */
           /* 캘린더 칸: 좁은 폭에 맞춰 여백·높이 축소 */
           .cal-wrap{ padding:12px 8px 28px; }
