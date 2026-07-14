@@ -1715,6 +1715,13 @@ function OnboardingTour({ steps, onClose }) {
     return () => { cancelAnimationFrame(id); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); };
   }, [i, step.sel]);
 
+  // 모바일 등에서 대상이 화면 밖에 있으면 스크롤해서 보이게(스텝 바뀔 때 1회)
+  useEffect(() => {
+    if (!step.sel) return;
+    const el = document.querySelector(step.sel);
+    if (el) el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  }, [i, step.sel]);
+
   const last = i === steps.length - 1;
   const first = i === 0;
   const PAD = 8;
@@ -2875,6 +2882,32 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         @media (max-width: 900px){
           .layout{ grid-template-columns:1fr; }
           .sidebar{ border-left:none; border-top:1px solid var(--border); min-height:auto; }
+        }
+
+        /* ── 모바일·좁은 화면 최적화 ── */
+        @media (max-width: 760px){
+          /* 상단바: 한 줄에 다 안 들어가므로 위/아래로 접어 배치 */
+          .topbar{ flex-direction:column; align-items:stretch; gap:9px; padding:10px 12px; }
+          .topbar-left{ flex-wrap:wrap; justify-content:center; gap:8px 12px; }
+          .logo{ font-size:16px; }
+          .cal-name, .cal-name-input{ display:none; }
+          .view-nav-stack{ flex-direction:row; align-items:center; justify-content:center; gap:14px; width:100%; }
+          .month-label{ font-size:14px; min-width:0; }
+          .cal-size-ctrl{ display:none; }              /* 폭 큰 슬라이더는 모바일에서 숨김(자동으로 화면에 맞춤) */
+          .topbar-right{ flex-wrap:wrap; justify-content:center; gap:6px; width:100%; }
+          /* 꾸미기 패널: 화면 하단 시트처럼 띄워 항상 손이 닿게 */
+          .deco-panel{ position:fixed; top:auto; bottom:10px; left:10px; right:10px; width:auto; max-height:76vh; overflow-y:auto; }
+          /* 캘린더 칸: 좁은 폭에 맞춰 여백·높이 축소 */
+          .cal-wrap{ padding:12px 8px 28px; }
+          .grid{ gap:4px; }
+          .cell{ min-height:62px; padding:6px; }
+          .cell.aspect{ min-height:52px; }
+          .weekday-row span{ font-size:11px; }
+          .cal-bg-image{ inset:8px 8px; }
+          /* 사이드바 입력: 폭 여유 */
+          .sidebar{ padding:18px 14px; }
+          /* 드래그 삭제 휴지통이 하단 시트와 안 겹치게 살짝 위로 */
+          .drag-trash{ bottom:14px; }
         }
       `}</style>
 
