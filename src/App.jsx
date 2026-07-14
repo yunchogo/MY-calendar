@@ -1131,6 +1131,9 @@ function dbRowToEntry(row) {
     timeLabel: row.start_minutes != null ? `${formatMinutes(row.start_minutes)}~${formatMinutes(row.end_minutes)}` : "",
     label: row.label,
     text: row.raw_text,
+    // 사용자가 직접 지정한 색(DB에 저장된 색). 없으면 null → 라벨 기준 자동 배색에 맡김
+    userColor: VAR_TO_HEX[row.color] || (isHex(row.color) ? row.color : null),
+    hasUserColor: !!(VAR_TO_HEX[row.color] || (isHex(row.color) ? row.color : null)),
     color: VAR_TO_HEX[row.color] || (isHex(row.color) ? row.color : null) || (row.is_holiday ? HOLIDAY_COLOR : colorFor(row.label)),
     isHoliday: !!row.is_holiday,
     overrides,
@@ -2320,7 +2323,8 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
 
   const setEntryColor = async (id, color) => {
     pushUndo();
-    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, color } : e)));
+    // 직접 지정한 색으로 표시(hasUserColor=true) → 자동 배색보다 우선
+    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, color, userColor: color, hasUserColor: true } : e)));
     await updateEventFields(id, { color });
   };
 
@@ -2638,12 +2642,34 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
     "--cell-text": getContrastText(dayTpl.cellBg) === "#FFFFFF" ? "rgba(255,255,255,0.72)" : "#9a989a",
   } : {};
 
-  // 일정 색: '테마 색 자동'이 켜져 있고 테마(tpl)가 있으면 테마 팔레트에서 라벨 해시로 골라 씀(공휴일 제외)
+  // 라벨(키워드)별 자동 배색 맵: 같은 키워드는 같은 색, 다른 키워드는 서로 다른 색(8색)으로.
+  // 사용자가 직접 지정한 색이 있으면 그 라벨은 그 색을 차지하고, 나머지 라벨은 가장 적게 쓰인 색을 골라 배정.
+  const labelColorMap = useMemo(() => {
+    const map = new Map();
+    const used = [];
+    const nonHol = entries.filter((e) => !e.isHoliday && e.label);
+    for (const e of nonHol) { // 1) 사용자가 색을 지정한 라벨이 먼저 그 색을 차지
+      if (e.hasUserColor && e.userColor && !map.has(e.label)) { map.set(e.label, e.userColor); used.push(e.userColor); }
+    }
+    const countOf = (c) => used.reduce((n, x) => n + (x === c ? 1 : 0), 0);
+    for (const e of nonHol) { // 2) 남은 라벨은 가장 적게 쓰인 팔레트 색으로(서로 최대한 다르게)
+      if (!map.has(e.label)) {
+        let best = EVENT_COLOR_CHOICES[0], bestN = Infinity;
+        for (const c of EVENT_COLOR_CHOICES) { const n = countOf(c); if (n < bestN) { bestN = n; best = c; } }
+        map.set(e.label, best); used.push(best);
+      }
+    }
+    return map;
+  }, [entries]);
+
+  // 일정 색: '테마 색 자동'이 켜져 있고 테마(tpl)가 있으면 테마 팔레트에서 라벨 해시로 골라 씀(공휴일 제외).
+  // 아니면: 사용자가 직접 지정한 색 우선, 없으면 라벨별 자동 배색 맵.
   const hashIndex = (str, n) => { let h = 0; for (const c of String(str || "")) h = (h + c.charCodeAt(0)) % n; return h; };
   const eventColorFor = (e, tpl) => {
     if (e.isHoliday) return e.color;
     if (themeEventColors && tpl) { const pal = themeEventPalette(tpl); return pal[hashIndex(e.label, pal.length)]; }
-    return e.color;
+    if (e.hasUserColor && e.userColor) return e.userColor;
+    return labelColorMap.get(e.label) || e.color;
   };
   const shapeForEvent = (e) => eventShapes[e.id] || eventShape;
   // 사이드바 일정 목록의 색 기준 테마(지금 보고 있는 화면 기준). 테마 색 자동이 꺼져 있으면 eventColorFor가 원래 색을 그대로 돌려줌
