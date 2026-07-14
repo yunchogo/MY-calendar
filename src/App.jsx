@@ -1147,6 +1147,15 @@ function formatMinutes(min) {
   if (hh === 0) hh = 12;
   return `${ampm} ${hh}:${String(m).padStart(2, "0")}`;
 }
+/* 캘린더 칸용 아주 짧은 시간 표기: 19:00~21:00 → "19-21", 7:30~8:00 → "07:30-08" */
+function compactHour(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return m === 0 ? String(h).padStart(2, "0") : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+function compactRange(start, end) {
+  if (start == null) return "";
+  return end != null ? `${compactHour(start)}-${compactHour(end)}` : compactHour(start);
+}
 function toMinutes12(ampm, hour, minute) {
   let h = hour % 12;
   if (ampm === "오후") h += 12;
@@ -2282,7 +2291,9 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
     const parseYear = isDayMode ? dYear : year;
     const parseMonth = isDayMode ? dMonthNum : monthNum;
 
-    const { error } = await parseScheduleWithAI(raw, parseYear, parseMonth, targetDate);
+    const now = new Date();
+    const todayISO = isoDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const { error } = await parseScheduleWithAI(raw, parseYear, parseMonth, targetDate, todayISO);
     if (error) {
       console.error("AI 파싱 실패:", error);
       // 폴백: AI 호출이 실패했을 때만 기존 규칙 기반 파서로 동작 (완전히 끊기지 않도록)
@@ -2807,7 +2818,9 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         .cell-day{ font-size:calc(var(--date-size, 13px) * var(--cal-scale, 1) * var(--content-scale, 1)); font-weight:600; color:var(--cell-text, #9a989a); margin-bottom:calc(6px * var(--cal-scale, 1)); display:flex; align-items:center; gap:5px; justify-content:var(--date-justify, flex-start); font-family:var(--date-font, var(--body-font, inherit)); }
         .cell-holiday-label{ font-size:calc(10.5px * var(--cal-scale, 1) * var(--content-scale, 1)); font-weight:600; color:#E01E5A; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .ev-bar{ font-size:calc(11px * var(--cal-scale, 1) * var(--content-scale, 1)); font-weight:600; color:#fff; border-radius:calc(var(--ev-radius, 6px) * var(--cal-scale, 1)); padding:calc(3px * var(--cal-scale, 1)) calc(6px * var(--cal-scale, 1));
-          margin-bottom:calc(4px * var(--cal-scale, 1)); cursor:grab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--body-font, inherit); }
+          margin-bottom:calc(4px * var(--cal-scale, 1)); cursor:grab; font-family:var(--body-font, inherit);
+          /* 핵심 키워드가 말줄임으로 잘리지 않게 최대 2줄까지 줄바꿈(한글은 단어 유지) */
+          overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:keep-all; overflow-wrap:anywhere; line-height:1.25; }
         .ev-bar.recurring{ cursor:pointer; opacity:0.92; }
         /* 스티커 오버레이 — cal-wrap 전체를 덮되, 레이어 자체는 클릭을 통과시키고 스티커만 잡히게 */
         .sticker-layer{ position:absolute; inset:0; z-index:4; pointer-events:none; overflow:visible; }
@@ -3356,7 +3369,7 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
                         onDragEnd={() => { setDragActive(false); setDraggingId(null); }}
                         onClick={(ev) => { ev.stopPropagation(); onCellClick(day); }}
                         title={e.text}>
-                        {e.timeLabel ? `${e.timeLabel} ` : ""}{e.label}
+                        {e.start != null ? `${compactRange(e.start, e.end)} ` : ""}{e.label}
                       </div>
                     ))
                   )}
@@ -3445,7 +3458,7 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
       {selectedDay && (
         <DayDetailModal
           year={year} day={selectedDay} monthNum={monthNum} weekday={selectedWeekday}
-          events={eventsForCell(selectedDay, selectedWeekday)}
+          events={eventsForCell(selectedDay, selectedWeekday).map((e) => ({ ...e, color: eventColorFor(e, activeTemplate) }))}
           onClose={() => setSelectedDay(null)} onUpdate={handleModalUpdate}
           eventStyle={activeTemplate?.eventStyle}
         />

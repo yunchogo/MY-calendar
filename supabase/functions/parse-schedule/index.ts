@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) return json({ error: "로그인이 필요해요." }, 401);
 
-    const { text, viewYear, viewMonth, targetDate } = await req.json();
+    const { text, viewYear, viewMonth, targetDate, today } = await req.json();
     if (!text || typeof text !== "string") return json({ error: "text가 필요해요." }, 400);
 
     // AI가 "지워줘" 같은 명령의 대상을 찾을 수 있도록 기존 일정 목록을 같이 줍니다
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       .from("events")
       .select("id, type, label, days_of_week, event_date, start_minutes, end_minutes, is_holiday");
 
-    const operations = await callGeminiForParsing(text, viewYear, viewMonth, existingEvents ?? [], targetDate ?? null);
+    const operations = await callGeminiForParsing(text, viewYear, viewMonth, existingEvents ?? [], targetDate ?? null, today ?? null);
 
     const results = [];
     for (const op of operations) {
@@ -72,16 +72,27 @@ async function callGeminiForParsing(
   viewYear: number,
   viewMonth: number,
   existingEvents: any[],
-  targetDate: string | null
+  targetDate: string | null,
+  today: string | null
 ) {
   const dateAnchorLine = targetDate
     ? `이 요청은 특정 날짜(${targetDate})에 대한 것입니다(사용자가 그 날짜의 하루 시간표를 보며 입력하고 있어요). 사용자 문장에 다른 날짜가 명시적으로 없다면, 새로 만드는 special 일정의 dates는 반드시 ["${targetDate}"]로 채우세요. 문장에 명시적으로 다른 날짜가 있으면 그 날짜를 그대로 쓰세요.`
     : `현재 보고 있는 달: ${viewYear}년 ${viewMonth}월 (사용자가 월 없이 "일"만 말하면 이 달로 채우세요)`;
 
+  const WD = ["일", "월", "화", "수", "목", "금", "토"];
+  const todayLine = today
+    ? `오늘 날짜: ${today} (${WD[new Date(today + "T00:00:00Z").getUTCDay()]}요일). 아래 상대적 날짜 표현은 반드시 오늘을 기준으로 실제 날짜(YYYY-MM-DD)로 변환해서 special 일정의 dates에 넣으세요:
+  - "오늘"=${today}, "내일"=오늘+1일, "모레"/"내일모레"=오늘+2일, "글피"=오늘+3일
+  - "이번 주 X요일"=오늘이 속한 주(월요일 시작~일요일)의 그 요일 날짜, "다음 주 X요일"=그 다음 주의 그 요일, "지난 주 X요일"=지난 주의 그 요일
+  - "이번 주말"=이번 주 토요일과 일요일, "다음 주말"=다음 주 토·일
+  - "X일 뒤/후"=오늘+X일. 요일·주 계산은 위의 '오늘 요일'을 기준으로 정확히 하세요.`
+    : "";
+
   const systemPrompt = `당신은 한국어 캘린더 앱의 일정 파서입니다. 사용자가 자유롭게 쓴 문장을 분석해서,
 아래 JSON 스키마의 "operations" 배열만 출력하세요. 다른 설명이나 코드 펜스 없이 순수 JSON만 출력합니다.
 
 ${dateAnchorLine}
+${todayLine}
 
 기존 일정 목록 (명령 대상을 찾을 때 label로 매칭하세요. is_holiday:true는 자동으로 채워진 공휴일 일정입니다.
 weekday는 event_date가 있는 일정(공휴일, special)의 요일이에요 0=일 1=월 2=화 3=수 4=목 5=금 6=토):
@@ -96,11 +107,13 @@ operations 배열의 각 항목은 아래 세 형태 중 하나입니다:
 1) 새 일정 추가
 { "op": "create", "type": "recurring" | "special",
   "days_of_week": [0-6 배열] | null, "dates": ["YYYY-MM-DD", ...] | null,
-  "start_minutes": 0-1439 | null, "end_minutes": 0-1439 | null, "label": "일정 이름",
+  "start_minutes": 0-1439 | null, "end_minutes": 0-1439 | null, "label": "핵심 키워드",
   "text": "이 일정을 만든 원문 문장(또는 절)" }
 - days_of_week는 recurring일 때만 사용 (0=일 1=월 2=화 3=수 4=목 5=금 6=토)
 - dates는 special일 때만 사용, 날짜를 여러 개 나열했으면 각각 배열에 넣기 (예: "11일 19일 26일" → 3개)
 - 시간 정보가 명확하지 않으면 start_minutes를 780(오후 1시), end_minutes를 840(오후 2시)로 채우세요 (기본값)
+- **label은 캘린더 칸에 표시될 아주 짧은 핵심 키워드입니다. 장소나 활동 이름만 남기고 조사·서술어·"약속/하기/할거야" 같은 군더더기는 모두 빼세요. 최대한 짧게(보통 2~6자):**
+  예) "헬스장에서 운동할거야"→"헬스장", "매일 아침 7시부터 8시에 아침식사를 할꺼야"→"아침식사", "회사에서 일해"→"회사", "친구랑 저녁 약속"→"저녁 약속", "치과 예약 있어"→"치과"
 - text는 사용자가 입력한 문장 중 이 일정에 해당하는 부분을 그대로(또는 거의 그대로) 옮겨 적으세요 — 사이드바 목록에 그대로 표시됩니다
 
 2) 기존 일정 삭제/쉬기

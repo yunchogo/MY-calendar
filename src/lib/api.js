@@ -249,9 +249,9 @@ export async function updateProfile(patch) {
  * AI가 분석한 뒤 DB에 직접 반영하도록 합니다. 반환값은 참고용이며,
  * 호출 측에서는 보통 fetchEvents()로 다시 불러와 최신 상태를 반영하면 됩니다.
  */
-export async function parseScheduleWithAI(text, viewYear, viewMonth, targetDate = null) {
+export async function parseScheduleWithAI(text, viewYear, viewMonth, targetDate = null, today = null) {
   const { data, error } = await supabase.functions.invoke("parse-schedule", {
-    body: { text, viewYear, viewMonth, targetDate },
+    body: { text, viewYear, viewMonth, targetDate, today },
   });
   return { data, error };
 }
