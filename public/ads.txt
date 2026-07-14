@@ -1,5 +1,1 @@
-# ads.txt — Google AdSense 승인 후 아래 한 줄의 pub-XXXXXXXXXXXXXXXX 를
-# 본인 퍼블리셔 ID(AdSense 계정 → 계정 정보에서 확인)로 바꾸고 주석(#)을 해제하세요.
-# 형식: google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
-#
-# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+google.com, pub-6928239392418882, DIRECT, f08c47fec0942fa0
