@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>사용법 가이드 · My calendar</title>
+  <meta name="description" content="My calendar 사용법 — 일정 입력부터 월간·일간 보기, 드래그 편집, 테마·배경·스티커 꾸미기, 도형 표시, 데일리 플래너, 저장·동기화까지 단계별 안내." />
+  <link rel="canonical" href="https://mycalendar-henna.vercel.app/guide.html" />
+  <style>
+    :root{ --primary:#4A154B; --accent:#1264A3; --green:#2EB67D; --text:#1D1C1D; --muted:#5c5a5c; --border:#E8E8E8; }
+    *{ box-sizing:border-box; }
+    body{ font-family:'Poppins','Apple SD Gothic Neo','Malgun Gothic',sans-serif; color:var(--text); line-height:1.7; margin:0; background:#fff; }
+    .topnav{ max-width:860px; margin:0 auto; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:8px; }
+    .topnav a.brand{ font-weight:700; color:var(--primary); text-decoration:none; font-size:17px; }
+    .topnav .links a{ color:var(--muted); text-decoration:none; font-size:13.5px; margin-left:16px; }
+    .topnav .links a:hover{ color:var(--primary); }
+    .wrap{ max-width:860px; margin:0 auto; padding:40px 24px 80px; }
+    a{ color:var(--accent); }
+    h1{ font-size:30px; color:var(--primary); margin:0 0 8px; }
+    .lead{ color:var(--muted); font-size:15px; margin-bottom:30px; }
+    h2{ font-size:20px; margin:38px 0 8px; color:var(--primary); }
+    h2 .n{ display:inline-block; min-width:30px; height:30px; line-height:30px; text-align:center; background:var(--primary); color:#fff; border-radius:8px; font-size:15px; margin-right:8px; }
+    p,li{ font-size:15px; color:#2a292a; }
+    ul{ padding-left:20px; }
+    .tip{ background:#F2F8F4; border:1px solid #CFE8DA; border-radius:12px; padding:12px 16px; font-size:14px; color:#2f6b4f; margin:14px 0; }
+    .kbd{ background:#F1F0F1; border:1px solid var(--border); border-radius:6px; padding:1px 7px; font-size:13px; }
+    footer{ margin-top:52px; padding-top:20px; border-top:1px solid var(--border); font-size:13px; color:var(--muted); }
+    footer a{ color:var(--muted); }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a class="brand" href="/">🗓 My calendar</a>
+    <span class="links"><a href="/guide.html">사용법</a><a href="/faq.html">FAQ</a><a href="/privacy.html">개인정보처리방침</a></span>
+  </nav>
+  <div class="wrap">
+    <h1>사용법 가이드</h1>
+    <p class="lead">My calendar는 <strong>생각나는 대로 적기만 하면 AI가 자동으로 정리해주는 캘린더</strong>예요. 아래 순서대로 따라 하면 5분 만에 익숙해집니다.</p>
+
+    <h2><span class="n">1</span>일정 입력하기</h2>
+    <p>오른쪽 입력창에 평소 말하듯 자유롭게 적고 <strong>‘일정 추가’</strong>를 누르세요. AI가 반복 일정과 특별 일정을 구분해 캘린더에 넣어줍니다.</p>
+    <ul>
+      <li>“월~금 오전 9시부터 오후 6시까지 회사” → 매주 평일 반복 일정으로</li>
+      <li>“26일 오후 2시 팀 미팅” → 그날 하루 일정으로</li>
+      <li>여러 일정을 한 문장에 적어도 자동으로 나눠서 추가돼요.</li>
+    </ul>
+    <div class="tip">💡 “회사 일정 지워줘”, “28일은 쉬어” 같은 <strong>수정 명령</strong>도 알아들어요.</div>
+
+    <h2><span class="n">2</span>월간 · 일간 보기 전환</h2>
+    <p>상단의 <strong>월간 / 일간</strong> 스위치로 한 달 달력과 하루 시간표(데일리 플래너)를 오갈 수 있어요. 일간 화면에서는 시간 블록을 드래그해 조절하고, <strong>할 일(To-do)과 메모</strong>도 날짜별로 적을 수 있습니다.</p>
+
+    <h2><span class="n">3</span>드래그로 편집하기</h2>
+    <ul>
+      <li><strong>이동</strong>: 일정 블록(또는 오른쪽 목록의 일정)을 다른 날짜 칸으로 끌어다 놓으면 그 날짜로 옮겨져요.</li>
+      <li><strong>삭제</strong>: 일정을 끌면 화면 아래 <strong>휴지통</strong>이 나타나요. 거기에 놓으면 삭제됩니다.</li>
+      <li>반복 일정을 하루만 지우면 그 날짜만 사라지고, 다시 끌어다 놓으면 되살아나요.</li>
+      <li>실수했다면 <span class="kbd">Ctrl</span>+<span class="kbd">Z</span> 또는 되돌리기 버튼으로 취소할 수 있어요.</li>
+    </ul>
+
+    <h2><span class="n">4</span>테마로 꾸미기</h2>
+    <p>오른쪽 위 <strong>꾸미기(팔레트)</strong> 버튼을 누르면 디자인을 바꿀 수 있어요.</p>
+    <ul>
+      <li><strong>✨ AI 테마</strong>: 마음에 드는 캘린더·플래너 사진을 올리면 색·폰트·칸 모양을 분석해 비슷하게 적용해줘요. 월간만 / 일간만 / 둘 다 선택 가능.</li>
+      <li><strong>템플릿·프리셋·포인트 색</strong>: 준비된 디자인과 색을 고를 수 있어요.</li>
+      <li><strong>칸 색칠</strong>: 특정 날짜 칸에 색을 입혀요.</li>
+    </ul>
+
+    <h2><span class="n">5</span>배경 이미지 · 스티커</h2>
+    <ul>
+      <li><strong>배경 이미지</strong>: 캘린더 뒤에 사진을 은은하게 깔고 투명도·크기를 조절할 수 있어요.</li>
+      <li><strong>스티커</strong>: 원하는 사진을 올려 캘린더 위 아무 곳에나 놓고, 드래그로 이동·크기조절·회전할 수 있어요.</li>
+    </ul>
+
+    <h2><span class="n">6</span>일정을 도형으로 간략히 보기</h2>
+    <p>‘일정 표시’에서 <strong>도형으로</strong>를 켜면 칸 안 일정이 작은 도형(동그라미·별·하트 등)으로 표시돼요. 일정마다 다른 도형을 지정해 한눈에 구분할 수도 있고, ‘테마 색 자동’을 켜면 테마에 어울리는 색으로 맞춰집니다.</p>
+
+    <h2><span class="n">7</span>크기 조절 · 이미지 저장</h2>
+    <ul>
+      <li>상단 슬라이더로 <strong>캘린더 전체 크기</strong>와 <strong>칸 안 글씨 크기</strong>를 따로 조절해요.</li>
+      <li><strong>다운로드</strong> 버튼으로 지금 캘린더를 이미지로 저장해 공유할 수 있어요.</li>
+    </ul>
+
+    <h2><span class="n">8</span>저장과 동기화</h2>
+    <p>모든 일정과 꾸미기 설정은 <strong>계정에 자동 저장</strong>돼요. 다른 기기에서 같은 계정으로 로그인하면 그대로 이어서 볼 수 있습니다. 처음 로그인하면 <strong>기능 안내 투어</strong>가 자동으로 뜨고, 우측 상단 <strong>?</strong> 버튼으로 언제든 다시 볼 수 있어요.</p>
+
+    <div class="tip">더 궁금한 점은 <a href="/faq.html">자주 묻는 질문(FAQ)</a>을 확인해보세요.</div>
+
+    <footer>
+      <a href="/">홈</a> · <a href="/faq.html">FAQ</a> · <a href="/privacy.html">개인정보처리방침</a><br />
+      © 2026 My calendar
+    </footer>
+  </div>
+</body>
+</html>

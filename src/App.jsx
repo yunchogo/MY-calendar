@@ -429,6 +429,8 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
       {/* 푸터 */}
       <footer className="landing-footer">
         <span>© 2026 My calendar</span>
+        <a href="/guide.html">사용법</a>
+        <a href="/faq.html">FAQ</a>
         <a href="/privacy.html">개인정보처리방침</a>
       </footer>
     </div>
