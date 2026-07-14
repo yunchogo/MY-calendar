@@ -1809,6 +1809,13 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTour, setShowTour] = useState(false); // 첫 방문 기능 안내 투어
+  // 좁은 화면(모바일) 여부 — 일간 시간표를 fit(높이 압축) 대신 고정 스크롤로 바꿔 스크롤 시 튐 방지
+  const [isNarrow, setIsNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth <= 760);
+  useEffect(() => {
+    const onR = () => setIsNarrow(window.innerWidth <= 760);
+    window.addEventListener("resize", onR);
+    return () => window.removeEventListener("resize", onR);
+  }, []);
   const [inputValue, setInputValue] = useState("");
   const [todoInput, setTodoInput] = useState(""); // 일간 플래너 To-Do 입력칸
   const [aiLoading, setAiLoading] = useState(false);
@@ -2897,6 +2904,9 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
           .topbar-right{ flex-wrap:wrap; justify-content:center; gap:6px; width:100%; }
           /* 꾸미기 패널: 화면 하단 시트처럼 띄워 항상 손이 닿게 */
           .deco-panel{ position:fixed; top:auto; bottom:10px; left:10px; right:10px; width:auto; max-height:76vh; overflow-y:auto; }
+          /* 캘린더 판: JS로 계산한 폭(renderedW)이 화면보다 넓어도 무조건 화면에 맞춰 가로 넘침 방지 */
+          .cal-board{ width:100% !important; max-width:100% !important; margin-left:0 !important; margin-right:0 !important; }
+          .sticker-layer{ overflow:hidden; }   /* 화면 밖으로 삐져나간 스티커가 가로 스크롤 만들지 않게 */
           /* 캘린더 칸: 좁은 폭에 맞춰 여백·높이 축소 */
           .cal-wrap{ padding:12px 8px 28px; }
           .grid{ gap:4px; }
@@ -2904,6 +2914,9 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
           .cell.aspect{ min-height:52px; }
           .weekday-row span{ font-size:11px; }
           .cal-bg-image{ inset:8px 8px; }
+          /* 일간: 뷰포트에 억지로 맞추지 않고(모바일 주소창 접힘에 따라 튀는 문제) 자연 높이로 스크롤 */
+          .day-planner{ height:auto !important; overflow:visible; }
+          .dp-body{ overflow:visible; }
           /* 사이드바 입력: 폭 여유 */
           .sidebar{ padding:18px 14px; }
           /* 드래그 삭제 휴지통이 하단 시트와 안 겹치게 살짝 위로 */
@@ -3244,7 +3257,8 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
                     onUpdate={handleModalUpdate}
                     onDelete={(id, dk) => { dragDelete(id, dk); }}
                     onDragActive={(id) => { setDraggingId(id); setDragActive(!!id); }}
-                    fit fitSignal={dayViewH || 0}
+                    fit={!isNarrow} fitSignal={dayViewH || 0}
+                    height={isNarrow ? 540 : 380}
                     eventStyle={dayTpl?.eventStyle}
                   />
                 </div>
