@@ -54,6 +54,12 @@ const landingIcons = {
   bell: (
     <path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6ZM9.5 18a2.5 2.5 0 0 0 5 0" />
   ),
+  cloud: (
+    <>
+      <path d="M6.5 19a4.5 4.5 0 0 1-.8-8.93 6 6 0 0 1 11.6-1.2A4.25 4.25 0 0 1 17.5 19Z" />
+      <path d="M12 16v-6M9.5 12.5 12 10l2.5 2.5" />
+    </>
+  ),
   arrowRight: <path d="M5 12h14M13 6l6 6-6 6" />,
 };
 
@@ -94,11 +100,45 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
       accent: "var(--green)",
     },
     {
-      icon: "bell",
-      title: "놓치지 않게 알려줘요",
-      desc: "다가오는 일정 몇 분 전, 알람으로 미리 알려드려요.",
+      icon: "cloud",
+      title: "적어둔 그대로 저장돼요",
+      desc: "일정과 꾸미기 설정이 계정에 자동 저장돼요. 다른 기기에서 로그인하면 그대로 이어서 볼 수 있어요.",
       accent: "var(--yellow)",
     },
+  ];
+
+  // 실제로 입력해서 나오는 결과들 — 방문자가 로그인 전에 무엇을 기대할 수 있는지 그대로 보여줍니다.
+  const examples = [
+    {
+      input: "매주 화요일 오후 7시부터 9시에 연극워크숍",
+      out: [{ label: "19-21 연극워크숍", color: "var(--green)" }],
+      note: "매주 화요일마다 자동으로 반복돼요.",
+    },
+    {
+      input: "이번주 금요일 데이트, 내일모레 오전 10시 병원",
+      out: [
+        { label: "데이트", color: "var(--yellow)" },
+        { label: "10-11 병원", color: "var(--accent)" },
+      ],
+      note: "“이번주 금요일”, “내일모레” 같은 말을 오늘 날짜 기준으로 계산해요.",
+    },
+    {
+      input: "아 연극워크숍이 아니라 연극치료실습이야",
+      out: [{ label: "19-21 연극치료실습", color: "var(--green)" }],
+      note: "새로 만들지 않고 아까 그 일정의 이름만 고쳐요.",
+    },
+    {
+      input: "빨간날에는 회사 안 가",
+      out: [{ label: "공휴일·일요일 제외", color: "var(--primary)" }],
+      note: "공휴일과 일요일에서 회사 일정을 빼줘요. 모든 달에 적용돼요.",
+    },
+  ];
+
+  const useCases = [
+    { title: "직장인", desc: "고정 근무 시간을 한 번만 적어두면 매달 자동으로 채워져요. 연차·출장만 그때그때 얹으면 끝이에요." },
+    { title: "학생", desc: "시간표를 문장으로 한 번에 적어두고, 시험이나 과제 마감만 추가하면 학기 내내 그대로 써요." },
+    { title: "프리랜서", desc: "일정마다 색과 도형이 자동으로 구분돼서, 어떤 일이 어느 요일에 몰려 있는지 한눈에 보여요." },
+    { title: "다이어리 쓰는 분", desc: "사진으로 테마를 만들고 스티커를 붙여서, 손으로 꾸민 다이어리처럼 만들 수 있어요." },
   ];
 
   return (
@@ -294,6 +334,43 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
           margin-top:8px; font-size:13.5px; color:#6b696b;
         }
 
+        /* --- 입력 → 결과 예시 --- */
+        .examples{ max-width:1200px; margin:0 auto; padding:40px 6vw 80px; }
+        .ex-list{ display:flex; flex-direction:column; gap:14px; }
+        .ex-row{
+          display:grid; grid-template-columns:1fr 40px 1fr; align-items:center; gap:12px;
+          border:1.5px solid var(--border); border-radius:16px; padding:20px 22px;
+        }
+        .ex-tag{ font-size:11px; font-weight:700; letter-spacing:.04em; color:#a8a6a8; text-transform:uppercase; }
+        .ex-text{ margin-top:8px; font-size:15px; font-weight:600; color:var(--text); word-break:keep-all; }
+        .ex-arrow{ display:flex; align-items:center; justify-content:center; color:#c9c7c9; }
+        .ex-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+        .ex-chip{
+          color:#fff; font-size:12.5px; font-weight:700; padding:6px 11px; border-radius:8px; white-space:nowrap;
+        }
+        .ex-note{ margin-top:10px; font-size:12.5px; color:#6b696b; word-break:keep-all; }
+
+        /* --- 이런 분들께 --- */
+        .usecases{ max-width:1200px; margin:0 auto; padding:0 6vw 80px; }
+        .uc-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; }
+        .uc-card{ background:#FAF9FA; border-radius:16px; padding:24px 20px; }
+        .uc-card h3{ font-size:15px; color:var(--primary); }
+        .uc-card p{ margin-top:8px; font-size:13.5px; color:#6b696b; word-break:keep-all; }
+
+        /* --- 더 읽을거리 --- */
+        .more-read{ max-width:1200px; margin:0 auto; padding:0 6vw 80px; }
+        .mr-inner{ border-top:1px solid var(--border); padding-top:48px; text-align:center; }
+        .mr-inner h2{ font-size:clamp(22px, 2.6vw, 28px); }
+        .mr-sub{ margin-top:10px; color:#5c5a5c; }
+        .mr-links{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:28px; text-align:left; }
+        .mr-card{
+          border:1.5px solid var(--border); border-radius:14px; padding:20px 22px;
+          text-decoration:none; display:block; transition:.15s;
+        }
+        .mr-card:hover{ border-color:transparent; box-shadow:0 10px 28px rgba(0,0,0,0.08); transform:translateY(-2px); }
+        .mr-card strong{ display:block; font-size:15px; color:var(--primary); }
+        .mr-card span{ display:block; margin-top:6px; font-size:13px; color:#6b696b; line-height:1.6; word-break:keep-all; }
+
         .landing-footer{
           max-width:1200px; margin:0 auto; padding:28px 6vw 40px;
           display:flex; align-items:center; justify-content:center; gap:18px;
@@ -307,6 +384,11 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
           .hero{grid-template-columns:1fr; padding-top:32px;}
           .visual{order:-1; transform:scale(0.9);}
           .feature-grid{grid-template-columns:1fr 1fr;}
+          .uc-grid{grid-template-columns:1fr 1fr;}
+          /* 좁은 화면에선 화살표를 아래 방향 느낌으로 — 가로 3열을 세로로 풀어요 */
+          .ex-row{grid-template-columns:1fr; gap:6px; padding:18px;}
+          .ex-arrow{justify-content:flex-start; transform:rotate(90deg); margin:4px 0;}
+          .mr-links{grid-template-columns:1fr;}
         }
         @media (max-width: 520px){
           .feature-grid{grid-template-columns:1fr;}
@@ -423,6 +505,70 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
               <p>{f.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* 입력 → 결과 예시 */}
+      <section className="examples">
+        <div className="features-head">
+          <h2>이렇게 적으면, 이렇게 정리돼요</h2>
+          <p>맞춤법도 형식도 신경 쓸 필요 없어요. 말하듯이 적으면 됩니다.</p>
+        </div>
+        <div className="ex-list">
+          {examples.map((ex, i) => (
+            <div className="ex-row" key={i}>
+              <div className="ex-in">
+                <span className="ex-tag">이렇게 적으면</span>
+                <p className="ex-text">“{ex.input}”</p>
+              </div>
+              <div className="ex-arrow" aria-hidden="true">
+                <LandingIcon path={landingIcons.arrowRight} size={18} className="icon" />
+              </div>
+              <div className="ex-out">
+                <span className="ex-tag">이렇게 들어가요</span>
+                <div className="ex-chips">
+                  {ex.out.map((o, j) => (
+                    <span className="ex-chip" key={j} style={{ background: o.color }}>{o.label}</span>
+                  ))}
+                </div>
+                <p className="ex-note">{ex.note}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 이런 분들께 */}
+      <section className="usecases">
+        <div className="features-head">
+          <h2>이런 분들이 쓰면 편해요</h2>
+          <p>반복되는 일정이 있는 사람일수록 시간을 많이 아껴요</p>
+        </div>
+        <div className="uc-grid">
+          {useCases.map((u, i) => (
+            <div className="uc-card" key={i}>
+              <h3>{u.title}</h3>
+              <p>{u.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 더 읽을거리 */}
+      <section className="more-read">
+        <div className="mr-inner">
+          <h2>더 알아보기</h2>
+          <p className="mr-sub">처음이시라면 사용법부터 보시는 걸 추천해요.</p>
+          <div className="mr-links">
+            <a className="mr-card" href="/guide.html">
+              <strong>사용법 가이드</strong>
+              <span>일정 입력부터 테마·스티커 꾸미기, 데일리 플래너까지 8단계로 안내해요.</span>
+            </a>
+            <a className="mr-card" href="/faq.html">
+              <strong>자주 묻는 질문</strong>
+              <span>요금, 회원가입, AI 동작 방식, 데이터 보관까지 궁금한 점을 모았어요.</span>
+            </a>
+          </div>
         </div>
       </section>
 
