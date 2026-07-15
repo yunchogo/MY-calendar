@@ -1308,34 +1308,33 @@ function splitClauses(raw) {
 
 /* 텍스트 명령 해석: "OO 일정 지워줘" / "N일 X시부터 Y시까지만 OO로 바꿔줘" / "공휴일에서 OO 지워줘" / "공휴일 일정 없애줘" */
 function tryParseCommand(text, entries, viewMonth) {
-  const isDelete = /(지워줘|지워|삭제|빼줘|없애줘|줄여줘|쉬기로)/.test(text);
+  const isDelete = /(지워줘|지워|삭제|빼줘|없애줘|줄여줘|쉬기로|쉴게|쉬어|하지\s*않아|하지\s*않을|안\s*가|안\s*해)/.test(text);
   const isChange = /(바꿔줘|바꿔주세요|변경)/.test(text) && /(부터|까지|[~-])/.test(text);
   if (!isDelete && !isChange) return null;
 
   const candidateLabels = [...new Set(entries.map((e) => e.label).filter(Boolean))];
   const targetLabel = candidateLabels.find((l) => text.includes(l));
 
-  const mentionsHoliday = /공휴일/.test(text);
-  // "공휴일에 ~" (에 조사) = 공휴일 자체가 아니라 "공휴일인 날짜에 있는 다른 일정"을 가리킴
-  const holidayLocative = /공휴일에/.test(text);
+  const mentionsHoliday = /(공휴일|빨간\s*날)/.test(text);
+  // "공휴일에/빨간날에 ~" (에 조사) = 공휴일 자체가 아니라 "공휴일인 날짜에 있는 다른 일정"을 가리킴
+  const holidayLocative = /(공휴일에|공휴일마다|빨간\s*날에|빨간\s*날마다)/.test(text);
+  // "이번 달"처럼 범위를 좁혀 말하지 않았으면 모든 달의 공휴일에 적용해요
+  const monthScoped = /(이번\s*달|이번\s*월|이달|금월|\d{1,2}\s*월)/.test(text);
 
-  if (mentionsHoliday && isDelete && !targetLabel) {
-    // "공휴일에 일정 지워줘" 처럼 특정 대상 없이 "공휴일 날짜의 일정들"을 지우라는 명령
-    if (holidayLocative) return { type: "skip-holiday-events" };
+  if (mentionsHoliday && isDelete) {
+    // "공휴일에 일정 지워줘" / "빨간날에는 회사 일정을 하지 않아" — 공휴일 날짜의 일정을 빼는 명령
+    if (holidayLocative || targetLabel) {
+      return { type: "skip-holiday-events", label: targetLabel ?? null, monthScoped };
+    }
     // "공휴일 지워줘/없애줘" 처럼 공휴일 자체를 지우라는 명령
     return { type: "delete-holidays" };
   }
 
   if (!targetLabel) return null;
 
-  let dates = [];
-  if (mentionsHoliday) {
-    dates = entries
-      .filter((e) => e.isHoliday && e.date && e.date.month === viewMonth)
-      .map((e) => e.date.day);
-  } else {
-    dates = [...text.matchAll(/(\d{1,2})\s*일(?!주)/g)].map((m) => parseInt(m[1], 10)).filter((d) => d >= 1 && d <= 31);
-  }
+  const dates = [...text.matchAll(/(\d{1,2})\s*일(?!주)/g)]
+    .map((m) => parseInt(m[1], 10))
+    .filter((d) => d >= 1 && d <= 31);
 
   if (isChange) {
     const timeSpan = parseTimeSpan(text);
@@ -2228,21 +2227,23 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
       return;
     }
     if (cmd.type === "skip-holiday-events") {
-      const holidayDays = entries
-        .filter((e) => e.isHoliday && e.date && e.date.month === targetMonth)
-        .map((e) => e.date.day);
+      // "이번 달"이라고 콕 집어 말했을 때만 그 달로 좁히고, 아니면 불러온 모든 달의 공휴일에 적용해요.
+      const holidayDates = entries
+        .filter((e) => e.isHoliday && e.date && (!cmd.monthScoped || e.date.month === targetMonth))
+        .map((e) => ({ month: e.date.month, day: e.date.day }));
       const toDelete = [];
       for (const e of entries) {
         if (e.isHoliday) continue;
+        if (cmd.label && e.label !== cmd.label) continue;
         if (e.type === "recurring") {
-          for (const d of holidayDays) {
-            const weekday = new Date(targetYear, targetMonth - 1, d).getDay();
+          for (const h of holidayDates) {
+            const weekday = new Date(targetYear, h.month - 1, h.day).getDay();
             if (!e.daysOfWeek.includes(weekday)) continue;
-            const dateKey = isoDate(targetYear, targetMonth, d);
+            const dateKey = isoDate(targetYear, h.month, h.day);
             await upsertOverride(e.id, dateKey, { skip: true });
             updateEntryOverrideLocal(e.id, dateKey, { skip: true });
           }
-        } else if (e.type === "special" && e.date && e.date.month === targetMonth && holidayDays.includes(e.date.day)) {
+        } else if (e.type === "special" && e.date && holidayDates.some((h) => h.month === e.date.month && h.day === e.date.day)) {
           toDelete.push(e.id);
         }
       }
