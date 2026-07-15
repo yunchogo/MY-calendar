@@ -1320,11 +1320,13 @@ function tryParseCommand(text, entries, viewMonth) {
   const holidayLocative = /(공휴일에|공휴일마다|빨간\s*날에|빨간\s*날마다)/.test(text);
   // "이번 달"처럼 범위를 좁혀 말하지 않았으면 모든 달의 공휴일에 적용해요
   const monthScoped = /(이번\s*달|이번\s*월|이달|금월|\d{1,2}\s*월)/.test(text);
+  // "빨간날"·"공휴일"에는 일요일이 포함돼요. 명시적으로 뺐을 때만 제외합니다.
+  const includeSundays = !/일요일\s*(은|는)?\s*(빼|제외|말고)/.test(text);
 
   if (mentionsHoliday && isDelete) {
     // "공휴일에 일정 지워줘" / "빨간날에는 회사 일정을 하지 않아" — 공휴일 날짜의 일정을 빼는 명령
     if (holidayLocative || targetLabel) {
-      return { type: "skip-holiday-events", label: targetLabel ?? null, monthScoped };
+      return { type: "skip-holiday-events", label: targetLabel ?? null, monthScoped, includeSundays };
     }
     // "공휴일 지워줘/없애줘" 처럼 공휴일 자체를 지우라는 명령
     return { type: "delete-holidays" };
@@ -2231,6 +2233,18 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
       const holidayDates = entries
         .filter((e) => e.isHoliday && e.date && (!cmd.monthScoped || e.date.month === targetMonth))
         .map((e) => ({ month: e.date.month, day: e.date.day }));
+      // "빨간날"에는 일요일도 포함돼요. 일요일은 저장된 일정이 아니라서 직접 계산해 붙입니다.
+      if (cmd.includeSundays) {
+        const months = cmd.monthScoped ? [targetMonth] : Array.from({ length: 12 }, (_, i) => i + 1);
+        for (const m of months) {
+          const lastDay = new Date(targetYear, m, 0).getDate();
+          for (let d = 1; d <= lastDay; d++) {
+            if (new Date(targetYear, m - 1, d).getDay() !== 0) continue;
+            if (holidayDates.some((h) => h.month === m && h.day === d)) continue;
+            holidayDates.push({ month: m, day: d });
+          }
+        }
+      }
       const toDelete = [];
       for (const e of entries) {
         if (e.isHoliday) continue;
