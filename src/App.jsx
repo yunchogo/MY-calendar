@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { toPng } from "html-to-image";
-import { signInWithGoogle, signUpWithEmail, signInWithEmail, signOut, onAuthStateChange } from "./lib/auth";
+import { signInWithGoogle, signInWithKakao, signUpWithEmail, signInWithEmail, signOut, onAuthStateChange } from "./lib/auth";
 import { supabase } from "./lib/supabaseClient";
 import {
   fetchEvents, createEvent, deleteEvent, updateEventBase,
@@ -495,6 +495,15 @@ const GoogleLogo = () => (
   </svg>
 );
 
+const KakaoLogo = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24">
+    <path
+      fill="#391B1B"
+      d="M12 3.5C6.7 3.5 2.5 6.9 2.5 11.1c0 2.7 1.8 5.1 4.5 6.5-.2.7-.7 2.6-.8 3-.1.5.2.5.4.4.2-.1 2.7-1.8 3.8-2.6.5.1 1.1.1 1.6.1 5.3 0 9.5-3.4 9.5-7.6S17.3 3.5 12 3.5Z"
+    />
+  </svg>
+);
+
 function LoginModal({
   isOpen = true,
   onClose = () => {},
@@ -515,6 +524,12 @@ function LoginModal({
     const { error } = await signInWithGoogle();
     if (error) setErrorMsg(error.message);
     // 성공 시 구글 로그인 페이지로 리다이렉트되므로 여기서 할 일 없음
+  };
+
+  const handleKakao = async () => {
+    setErrorMsg("");
+    const { error } = await signInWithKakao();
+    if (error) setErrorMsg(error.message);
   };
 
   const handleEmailSubmit = async (e) => {
@@ -613,6 +628,8 @@ function LoginModal({
           transition:.15s;
         }
         .modal-root .social-btn:hover { background:#FAFAFA; }
+        .modal-root .social-btn.kakao { background:#FEE500; border-color:#FEE500; }
+        .modal-root .social-btn.kakao:hover { filter:brightness(0.97); }
 
         .modal-root .divider {
           display:flex; align-items:center; gap:10px;
@@ -691,6 +708,10 @@ function LoginModal({
           <button className="social-btn" onClick={handleGoogle}>
             <GoogleLogo />
             Google로 {mode === "login" ? "로그인" : "시작하기"}
+          </button>
+          <button className="social-btn kakao" onClick={handleKakao}>
+            <KakaoLogo />
+            카카오로 {mode === "login" ? "로그인" : "시작하기"}
           </button>
         </div>
 
@@ -3810,7 +3831,7 @@ export default function App() {
 
   const handleAuthSuccess = () => {
     // 이메일/비밀번호 로그인은 즉시 세션이 생기므로 바로 전환.
-    // 구글 로그인은 리다이렉트 후 위 onAuthStateChange가 알아서 처리해줘요.
+    // 구글/카카오는 리다이렉트 후 위 onAuthStateChange가 알아서 처리해줘요.
     setShowLogin(false);
     setView("calendar");
   };
