@@ -110,8 +110,8 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
   // 실제로 입력해서 나오는 결과들 — 방문자가 로그인 전에 무엇을 기대할 수 있는지 그대로 보여줍니다.
   const examples = [
     {
-      input: "매주 화요일 오후 7시부터 9시에 연극워크숍",
-      out: [{ label: "19-21 연극워크숍", color: "var(--green)" }],
+      input: "매주 화요일 오후 7시부터 9시에 요가",
+      out: [{ label: "19-21 요가", color: "var(--green)" }],
       note: "매주 화요일마다 자동으로 반복돼요.",
     },
     {
@@ -123,8 +123,8 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
       note: "“이번주 금요일”, “내일모레” 같은 말을 오늘 날짜 기준으로 계산해요.",
     },
     {
-      input: "아 연극워크숍이 아니라 연극치료실습이야",
-      out: [{ label: "19-21 연극치료실습", color: "var(--green)" }],
+      input: "아 요가가 아니라 필라테스야",
+      out: [{ label: "19-21 필라테스", color: "var(--green)" }],
       note: "새로 만들지 않고 아까 그 일정의 이름만 고쳐요.",
     },
     {
@@ -3762,15 +3762,17 @@ function themeEventPalette(tpl) {
   const base = hexToHsl(accent);
   const s = Math.max(45, Math.min(76, base.s));
   const l = Math.max(38, Math.min(56, base.l));
-  // 색상환을 넓게 돌아서 서로 확실히 구분되게 해요. 채도·명도는 테마 강조색에서 가져오므로
-  // 색이 달라도 테마와 같은 톤으로 어울립니다.
-  // (예전엔 ±58° 안에만 돌아서 전부 비슷한 색으로 보였어요)
-  const rot = [0, 42, -42, 96, -96, 150, -150, 180];
+  // 테마 강조색 주변(±72°)에서만 색을 고르고, 부족한 구분은 채도·명도 차이로 냅니다.
+  // 색상환을 넓게 돌면(보색까지) 구분은 잘 되지만 테마 느낌이 깨져서 이 범위로 좁혔어요.
+  // 더 좁히면 서로 구분이 안 되는 게 확인됐습니다(±44°에서 최소 색거리 14).
+  const rot = [0, 36, -36, 72, -72];
+  const dl = [0, -15, 15, -8, 10];
+  const ds = [1, 0.9, 0.8, 0.95, 0.72];
   return rot.map((d, i) =>
     hslToHex(
       (base.h + d + 360) % 360,
-      i === 0 ? s : s * (i % 2 ? 0.94 : 0.86),
-      l + (i % 3 === 1 ? 6 : i % 3 === 2 ? -6 : 0)
+      Math.max(20, Math.min(92, s * ds[i])),
+      Math.max(24, Math.min(72, l + dl[i]))
     )
   );
 }
