@@ -2841,12 +2841,28 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
     return map;
   }, [entries]);
 
-  // 일정 색: '테마 색 자동'이 켜져 있고 테마(tpl)가 있으면 테마 팔레트에서 라벨 해시로 골라 씀(공휴일 제외).
+  // 라벨이 처음 등장한 순서(= 일정을 만든 순서). 새 키워드일수록 뒤 번호를 받아요.
+  // 테마 팔레트를 이 번호로 돌려 쓰면 서로 다른 키워드가 서로 다른 색을 갖게 됩니다.
+  const labelOrder = useMemo(() => {
+    const order = new Map();
+    for (const e of entries) {
+      if (e.isHoliday || !e.label) continue;
+      if (!order.has(e.label)) order.set(e.label, order.size);
+    }
+    return order;
+  }, [entries]);
+
+  // 일정 색: '테마 색 자동'이 켜져 있고 테마(tpl)가 있으면 테마 팔레트에서 라벨 순서대로 골라 씀(공휴일 제외).
   // 아니면: 사용자가 직접 지정한 색 우선, 없으면 라벨별 자동 배색 맵.
   const hashIndex = (str, n) => { let h = 0; for (const c of String(str || "")) h = (h + c.charCodeAt(0)) % n; return h; };
   const eventColorFor = (e, tpl) => {
     if (e.isHoliday) return e.color;
-    if (themeEventColors && tpl) { const pal = themeEventPalette(tpl); return pal[hashIndex(e.label, pal.length)]; }
+    if (themeEventColors && tpl) {
+      const pal = themeEventPalette(tpl);
+      // 해시는 서로 다른 라벨끼리 자주 부딪혀서, 등장 순서를 우선 씁니다(못 찾을 때만 해시).
+      const idx = labelOrder.has(e.label) ? labelOrder.get(e.label) : hashIndex(e.label, pal.length);
+      return pal[idx % pal.length];
+    }
     if (e.hasUserColor && e.userColor) return e.userColor;
     return labelColorMap.get(e.label) || e.color;
   };
@@ -3744,10 +3760,19 @@ function hslToHex(h, s, l) {
 function themeEventPalette(tpl) {
   const accent = (tpl && isHex(tpl.accent)) ? tpl.accent : "#4A154B";
   const base = hexToHsl(accent);
-  const s = Math.max(42, Math.min(78, base.s));
-  const l = Math.max(38, Math.min(58, base.l));
-  const rot = [0, 28, -30, 55, -58, 14, -14];
-  return rot.map((d, i) => hslToHex((base.h + d + 360) % 360, s * (i % 2 ? 0.92 : 1), l + (i === 5 ? -8 : i === 6 ? 8 : 0)));
+  const s = Math.max(45, Math.min(76, base.s));
+  const l = Math.max(38, Math.min(56, base.l));
+  // 색상환을 넓게 돌아서 서로 확실히 구분되게 해요. 채도·명도는 테마 강조색에서 가져오므로
+  // 색이 달라도 테마와 같은 톤으로 어울립니다.
+  // (예전엔 ±58° 안에만 돌아서 전부 비슷한 색으로 보였어요)
+  const rot = [0, 42, -42, 96, -96, 150, -150, 180];
+  return rot.map((d, i) =>
+    hslToHex(
+      (base.h + d + 360) % 360,
+      i === 0 ? s : s * (i % 2 ? 0.94 : 0.86),
+      l + (i % 3 === 1 ? 6 : i % 3 === 2 ? -6 : 0)
+    )
+  );
 }
 
 /* ============================================================
