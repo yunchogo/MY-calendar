@@ -2020,6 +2020,9 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
   });
   // 월간 셀의 일정 표시 방식: "full"(글씨 바) | "compact"(작은 도형). + 도형 종류 + 도형 크기(글씨와 별개)
   const [eventDisplay, setEventDisplay] = useState(() => localStorage.getItem("bboggl_event_display") || "full");
+  // 입력한 명령을 보고 있는 달에만 적용할지("month"), 캘린더 전체에 적용할지("all").
+  // 기본값은 "all" — 지금까지의 동작이에요.
+  const [applyScope, setApplyScope] = useState(() => localStorage.getItem("bboggl_apply_scope") || "all");
   const [eventShape, setEventShape] = useState(() => localStorage.getItem("bboggl_event_shape") || "dot");
   const [shapeSizePct, setShapeSizePct] = useState(() => {
     const v = parseFloat(localStorage.getItem("bboggl_shape_size"));
@@ -2111,6 +2114,7 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
           if (Number.isFinite(up.bgOpacity)) setBgOpacity(up.bgOpacity);
           if (Number.isFinite(up.bgScale)) setBgScale(up.bgScale);
           if (up.eventDisplay === "full" || up.eventDisplay === "compact") setEventDisplay(up.eventDisplay);
+          if (up.applyScope === "month" || up.applyScope === "all") setApplyScope(up.applyScope);
           if (typeof up.eventShape === "string") setEventShape(up.eventShape);
           if (Number.isFinite(up.shapeSizePct)) setShapeSizePct(up.shapeSizePct);
           if (typeof up.themeEventColors === "boolean") setThemeEventColors(up.themeEventColors);
@@ -2207,7 +2211,19 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         }
         return e;
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      // 시간이 이른 일정이 위로 오게 정렬해요. 나중에 추가했더라도 시간 순서가 우선입니다.
+      // (공휴일은 항상 맨 위, 시간 없는 일정은 맨 아래)
+      .sort((a, b) => {
+        if (!!a.isHoliday !== !!b.isHoliday) return a.isHoliday ? -1 : 1;
+        const as = a.start ?? Infinity;
+        const bs = b.start ?? Infinity;
+        if (as !== bs) return as - bs;
+        const ae = a.end ?? Infinity;
+        const be = b.end ?? Infinity;
+        if (ae !== be) return ae - be;
+        return (a.label || "").localeCompare(b.label || "");
+      });
   };
   const eventsForCell = (day, weekday) => eventsForDate(year, monthNum, day, weekday);
 
@@ -2354,6 +2370,7 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         localStorage.setItem("bboggl_bg_opacity", String(bgOpacity));
         localStorage.setItem("bboggl_bg_scale", String(bgScale));
         localStorage.setItem("bboggl_event_display", eventDisplay);
+        localStorage.setItem("bboggl_apply_scope", applyScope);
         localStorage.setItem("bboggl_event_shape", eventShape);
         localStorage.setItem("bboggl_shape_size", String(shapeSizePct));
         localStorage.setItem("bboggl_theme_event_colors", themeEventColors ? "1" : "0");
@@ -2361,10 +2378,10 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         localStorage.setItem("bboggl_day_planner", JSON.stringify(dayPlanner));
       } catch { /* 용량 초과 등은 무시 */ }
       // ui_prefs 컬럼이 아직 없으면 이 요청은 조용히 실패하고 localStorage 백업만 남아요.
-      updateProfile({ ui_prefs: { stickers, bgOpacity, bgScale, eventDisplay, eventShape, shapeSizePct, themeEventColors, eventShapes, dayPlanner, dayTemplate, dayIndependent } });
+      updateProfile({ ui_prefs: { stickers, bgOpacity, bgScale, eventDisplay, eventShape, shapeSizePct, themeEventColors, eventShapes, dayPlanner, dayTemplate, dayIndependent, applyScope } });
     }, 600);
     return () => clearTimeout(t);
-  }, [stickers, bgOpacity, bgScale, eventDisplay, eventShape, shapeSizePct, themeEventColors, eventShapes, dayPlanner, dayTemplate, dayIndependent]);
+  }, [stickers, bgOpacity, bgScale, eventDisplay, eventShape, shapeSizePct, themeEventColors, eventShapes, dayPlanner, dayTemplate, dayIndependent, applyScope]);
 
   /* ---- 텍스트 명령("OO 지워줘" 등) 처리 — 각 대상 일정에 대해 실제 DB 반영까지 수행 ---- */
   const applyCommand = async (cmd, targetYear = year, targetMonth = monthNum) => {
@@ -2457,13 +2474,14 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
 
     const now = new Date();
     const todayISO = isoDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
-    const { error } = await parseScheduleWithAI(raw, parseYear, parseMonth, targetDate, todayISO);
+    const { error } = await parseScheduleWithAI(raw, parseYear, parseMonth, targetDate, todayISO, applyScope);
     if (error) {
       console.error("AI 파싱 실패:", error);
       // 폴백: AI 호출이 실패했을 때만 기존 규칙 기반 파서로 동작 (완전히 끊기지 않도록)
       const cmd = tryParseCommand(raw, entries, parseMonth);
       if (cmd) {
-        await applyCommand(cmd, parseYear, parseMonth);
+        // 사이드바 스위치가 "이 달만"이면 문장에 달 언급이 없어도 이번 달로 한정해요.
+        await applyCommand(applyScope === "month" ? { ...cmd, monthScoped: true } : cmd, parseYear, parseMonth);
       } else {
         const drafts = splitClauses(raw).flatMap((c) => parseClause(c, parseMonth));
         for (const d of drafts) {
@@ -3056,6 +3074,17 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         .sidebar{ background:#fff; border-left:1px solid var(--border); min-height:calc(100vh - 71px); padding:24px 20px; }
         .sidebar h3{ font-size:15px; display:flex; align-items:center; gap:6px; }
         .sidebar-desc{ font-size:12.5px; color:#8a888a; margin-top:6px; line-height:1.5; }
+
+        .scope-switch{ margin-top:14px; border:1.5px solid var(--border); border-radius:12px; padding:10px 12px; }
+        .scope-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .scope-title{ font-size:12px; font-weight:700; color:#6b696b; white-space:nowrap; }
+        .scope-tabs{ display:flex; gap:3px; background:#F1F0F1; border-radius:9px; padding:3px; }
+        .scope-tab{
+          border:none; background:transparent; cursor:pointer; padding:5px 10px; border-radius:7px;
+          font-family:inherit; font-weight:700; font-size:11.5px; color:#8a888a; transition:.15s; white-space:nowrap;
+        }
+        .scope-tab.active{ background:#fff; color:var(--primary); box-shadow:0 1px 3px rgba(0,0,0,0.10); }
+        .scope-desc{ margin-top:8px; font-size:11.5px; line-height:1.5; color:#a3a1a3; word-break:keep-all; }
         .input-row{ display:flex; flex-direction:column; gap:8px; margin-top:16px; }
         .input-row textarea{ border:1.5px solid var(--border); border-radius:10px; padding:10px 12px;
           font-size:12.5px; font-family:inherit; outline:none; resize:vertical; min-height:84px; line-height:1.5; }
@@ -3574,6 +3603,29 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
             생각나는 대로 쭉 적어도 돼요. 여러 일정을 한 문장에 적으면 자동으로 나눠서 추가해요.
             "회사 일정 지워줘", "28일 회사 쉬어" 같은 수정 명령도 인식해요.
           </p>
+          <div className="scope-switch">
+            <div className="scope-head">
+              <span className="scope-title">적용 범위</span>
+              <div className="scope-tabs" role="group" aria-label="일정 적용 범위">
+                <button
+                  className={`scope-tab ${applyScope === "month" ? "active" : ""}`}
+                  onClick={() => setApplyScope("month")}
+                  aria-pressed={applyScope === "month"}
+                >{monthNum}월만</button>
+                <button
+                  className={`scope-tab ${applyScope === "all" ? "active" : ""}`}
+                  onClick={() => setApplyScope("all")}
+                  aria-pressed={applyScope === "all"}
+                >캘린더 전체</button>
+              </div>
+            </div>
+            <p className="scope-desc">
+              {applyScope === "month"
+                ? `“매주 화요일” 같은 반복 일정도 ${monthNum}월 안에만 넣어요. 수정·삭제도 ${monthNum}월에만 적용돼요.`
+                : "“매주 화요일” 같은 반복 일정이 모든 달에 계속 반복돼요."}
+            </p>
+          </div>
+
           <div className="input-row">
             <textarea
               value={inputValue}

@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) return json({ error: "로그인이 필요해요." }, 401);
 
-    const { text, viewYear, viewMonth, targetDate, today } = await req.json();
+    const { text, viewYear, viewMonth, targetDate, today, scope } = await req.json();
     if (!text || typeof text !== "string") return json({ error: "text가 필요해요." }, 400);
 
     // AI가 "지워줘" 같은 명령의 대상을 찾을 수 있도록 기존 일정 목록을 같이 줍니다
@@ -55,7 +55,13 @@ Deno.serve(async (req) => {
 
     const results = [];
     for (const op of operations) {
-      results.push(await executeOperation(supabase, op, { viewYear, viewMonth }));
+      results.push(
+        await executeOperation(supabase, op, {
+          viewYear,
+          viewMonth,
+          scope: scope === "month" ? "month" : "all",
+        })
+      );
     }
 
     return json({ results });
@@ -221,8 +227,42 @@ function sundaysIn(year: number, month?: number): string[] {
   return out;
 }
 
-async function executeOperation(supabase: any, op: any, ctx: { viewYear: number; viewMonth: number }) {
+/** 해당 달에서 지정한 요일들에 해당하는 날짜를 모두 돌려줍니다 ("이 달만" 모드에서 반복 일정을 펼칠 때 사용). */
+function datesForWeekdaysInMonth(year: number, month: number, dow: number[]): string[] {
+  const out: string[] = [];
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  for (let d = 1; d <= lastDay; d++) {
+    if (!dow.includes(new Date(Date.UTC(year, month - 1, d)).getUTCDay())) continue;
+    out.push(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+async function executeOperation(
+  supabase: any,
+  op: any,
+  ctx: { viewYear: number; viewMonth: number; scope: "month" | "all" }
+) {
   if (op.op === "create") {
+    // "이 달만" 모드에서는 반복 일정을 보고 있는 달 안의 개별 날짜로 펼쳐서 저장해요.
+    // recurring으로 저장하면 요일만 보고 모든 달에 나타나기 때문이에요.
+    if (ctx.scope === "month" && op.type === "recurring" && Array.isArray(op.days_of_week) && op.days_of_week.length) {
+      const dates = datesForWeekdaysInMonth(ctx.viewYear, ctx.viewMonth, op.days_of_week);
+      const rows = [];
+      for (const d of dates) {
+        const { data } = await supabase
+          .from("events")
+          .insert({
+            type: "special", event_date: d,
+            start_minutes: op.start_minutes, end_minutes: op.end_minutes,
+            label: op.label, raw_text: op.text || op.label,
+          })
+          .select("*, event_overrides(*)")
+          .single();
+        if (data) rows.push(data);
+      }
+      return { op: "create", rows, expandedToMonth: dates.length };
+    }
     if (op.type === "special" && Array.isArray(op.dates) && op.dates.length > 1) {
       const rows = [];
       for (const d of op.dates) {
@@ -324,7 +364,8 @@ async function executeOperation(supabase: any, op: any, ctx: { viewYear: number;
       .from("events").select("id, type, days_of_week, event_date, is_holiday");
     if (!all) return { op: "skip_on_holidays", error: "일정을 불러오지 못했어요." };
 
-    const monthOnly = op.scope === "month";
+    // 사이드바 스위치가 "이 달만"이면 사용자가 뭐라고 했든 보고 있는 달로 한정해요.
+    const monthOnly = ctx.scope === "month" || op.scope === "month";
     const monthPrefix = `${ctx.viewYear}-${String(ctx.viewMonth).padStart(2, "0")}-`;
 
     const holidayRows = all.filter((e: any) => e.is_holiday === true && e.event_date);
