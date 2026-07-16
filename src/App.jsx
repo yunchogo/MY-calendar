@@ -2023,6 +2023,10 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
   // 입력한 명령을 보고 있는 달에만 적용할지("month"), 캘린더 전체에 적용할지("all").
   // 기본값은 "all" — 지금까지의 동작이에요.
   const [applyScope, setApplyScope] = useState(() => localStorage.getItem("bboggl_apply_scope") || "all");
+  // 알림 설정 — 설정 화면에서 켜고, 실제로 알림을 띄우는 건 아래 스케줄러예요.
+  const [pushEnabled, setPushEnabled] = useState(() => localStorage.getItem("bboggl_push_enabled") === "1");
+  const [pushLead, setPushLead] = useState(() => Number(localStorage.getItem("bboggl_push_lead")) || 10);
+  const firedNotifRef = useRef(new Set()); // 같은 일정을 반복해서 알리지 않도록
   const [eventShape, setEventShape] = useState(() => localStorage.getItem("bboggl_event_shape") || "dot");
   const [shapeSizePct, setShapeSizePct] = useState(() => {
     const v = parseFloat(localStorage.getItem("bboggl_shape_size"));
@@ -2088,6 +2092,8 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         setBgColor(profile.bg_color || "#FAFAFB");
         setBorderColor(profile.border_color || "#E8E8E8");
         setCalendarBgImage(profile.calendar_bg_image_url || null);
+        if (typeof profile.push_enabled === "boolean") setPushEnabled(profile.push_enabled);
+        if (Number.isFinite(profile.push_lead_minutes)) setPushLead(profile.push_lead_minutes);
         // 커스텀(AI) 테마가 있으면 그걸 우선 적용, 없으면 기존 프리셋 템플릿.
         // custom_theme 컬럼이 아직 없어 서버 저장이 안 되는 경우엔 브라우저에 캐시해둔 AI 테마로 복원.
         if (profile.custom_theme) {
@@ -2226,6 +2232,39 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
       });
   };
   const eventsForCell = (day, weekday) => eventsForDate(year, monthNum, day, weekday);
+
+  /* ---- 일정 임박 알림 ----
+     이 사이트가 열려 있는 동안, 오늘 일정이 시작하기 pushLead분 전에 브라우저 알림을 띄워요.
+     (탭을 완전히 닫으면 못 띄웁니다 — 그건 서비스워커+푸시 서버가 필요한 별도 작업이에요) */
+  useEffect(() => {
+    if (!pushEnabled) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+    const tick = () => {
+      const now = new Date();
+      const y = now.getFullYear(), m = now.getMonth() + 1, d = now.getDate();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const todays = eventsForDate(y, m, d, now.getDay());
+      for (const e of todays) {
+        if (e.isHoliday || e.start == null) continue;
+        const diff = e.start - nowMin;
+        if (diff < 0 || diff > pushLead) continue; // 이미 지났거나 아직 이른 일정
+        const key = `${isoDate(y, m, d)}#${e.id}`;
+        if (firedNotifRef.current.has(key)) continue;
+        firedNotifRef.current.add(key);
+        try {
+          new Notification(diff <= 0 ? "지금 시작해요" : `${diff}분 뒤에 시작해요`, {
+            body: `${compactRange(e.start, e.end)} ${e.label}`.trim(),
+            tag: key,
+          });
+        } catch { /* 알림을 못 띄우는 환경은 조용히 무시 */ }
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, [pushEnabled, pushLead, entries]);
 
   const updateEntryBaseLocal = (id, patch) => setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   const updateEntryOverrideLocal = (id, dateKey, patch) =>
@@ -3860,11 +3899,40 @@ function FormatPreview({ id }) {
 }
 
 function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
-  const [pushEnabled, setPushEnabled] = useState(false);
+  // 알림 설정은 계정(profiles)에 저장하고 localStorage로도 백업해요.
+  // (예전엔 컴포넌트 로컬 상태뿐이라 화면을 나가면 껐다 켠 게 사라졌어요)
+  const [pushEnabled, setPushEnabled] = useState(() => localStorage.getItem("bboggl_push_enabled") === "1");
   const [pushBlocked, setPushBlocked] = useState(false);
-  const [leadMinutes, setLeadMinutes] = useState(10);
+  const [leadMinutes, setLeadMinutes] = useState(() => Number(localStorage.getItem("bboggl_push_lead")) || 10);
+  const [pushLoaded, setPushLoaded] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("free");
   const [selectedFormat, setSelectedFormat] = useState("circle");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: profile } = await fetchProfile();
+      if (cancelled) return;
+      if (profile) {
+        if (typeof profile.push_enabled === "boolean") setPushEnabled(profile.push_enabled);
+        if (Number.isFinite(profile.push_lead_minutes)) setLeadMinutes(profile.push_lead_minutes);
+      }
+      // 브라우저에서 권한을 다시 막았다면 "켜짐"으로 보여주면 안 돼요(실제로 알림이 안 오니까).
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") setPushEnabled(false);
+      setPushLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!pushLoaded) return; // 불러오기 전 기본값이 계정 값을 덮어쓰지 않게
+    try {
+      localStorage.setItem("bboggl_push_enabled", pushEnabled ? "1" : "0");
+      localStorage.setItem("bboggl_push_lead", String(leadMinutes));
+    } catch { /* 무시 */ }
+    // push_enabled/push_lead_minutes 컬럼이 없으면 이 요청만 조용히 실패하고 localStorage 백업이 남아요.
+    updateProfile({ push_enabled: pushEnabled, push_lead_minutes: leadMinutes });
+  }, [pushEnabled, leadMinutes, pushLoaded]);
 
   const togglePush = async () => {
     if (pushEnabled) { setPushEnabled(false); return; }
