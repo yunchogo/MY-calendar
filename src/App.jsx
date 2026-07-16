@@ -3818,9 +3818,7 @@ function themeEventPalette(tpl) {
 
 /* ============================================================
    Bboggl · 설정 페이지
-   - 알림: 구독 여부와 무관하게 항상 브라우저 푸시로만 작동
-   - 구독 미리보기: 실제 결제/메신저 발송은 PART 2(백엔드) 연동 필요,
-     여기서는 요금제·이미지 양식을 "미리 보고 고르는" UI만 구현
+   - 알림: 브라우저 푸시로만 작동(이 사이트를 열어둔 동안). 실제 알림은 CalendarPage의 스케줄러가 띄워요.
    ============================================================ */
 
 const SettingsIcon = ({ path, size = 20, className = "" }) => (
@@ -3834,7 +3832,6 @@ const settingsIcons = {
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   bell: <path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6ZM9.5 18a2.5 2.5 0 0 0 5 0" />,
   check: <path d="M5 13l4 4L19 7" />,
-  crown: <path d="M4 18h16l1-9-5 4-4-6-4 6-5-4 1 9Z" />,
   logout: (
     <>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -3851,52 +3848,6 @@ const settingsIcons = {
 
 const LEAD_OPTIONS = [5, 10, 15, 30, 60];
 
-const PLANS = [
-  { id: "free", name: "무료", price: 0, desc: "기본 캘린더 기능", features: ["텍스트로 일정 자동 등록", "테마·꾸미기 커스터마이징", "브라우저 푸시 알림"] },
-  { id: "basic", name: "베이직", price: 3900, desc: "매일 아침 텍스트 요약 발송", features: ["무료 플랜 전체 포함", "매일 7시 카카오톡 텍스트 요약", "일정 변경 시 자동 반영"] },
-  { id: "premium", name: "프리미엄", price: 6900, desc: "이미지 시간표 발송 + 양식 선택", features: ["베이직 전체 포함", "매일 7시 이미지 시간표 발송", "이미지 양식 3종 중 선택 가능"], highlight: true },
-];
-
-const FORMATS = [
-  { id: "circle", name: "원형 시간표" },
-  { id: "text", name: "텍스트 정리형" },
-  { id: "block", name: "구간별 이미지형" },
-];
-
-function FormatPreview({ id }) {
-  if (id === "circle") {
-    return (
-      <svg viewBox="0 0 80 80" width="100%" height="64">
-        <circle cx="40" cy="40" r="30" fill="none" stroke="var(--border)" strokeWidth="2" />
-        <path d="M40 40 L40 14 A26 26 0 0 1 62 52 Z" fill="var(--accent)" opacity="0.75" />
-        <path d="M40 40 L62 52 A26 26 0 0 1 24 63 Z" fill="var(--green)" opacity="0.75" />
-        <circle cx="40" cy="40" r="4" fill="var(--text)" />
-      </svg>
-    );
-  }
-  if (id === "text") {
-    return (
-      <svg viewBox="0 0 80 64" width="100%" height="64">
-        {[10, 24, 38, 52].map((y, i) => (
-          <g key={y}>
-            <rect x="6" y={y} width="10" height="8" rx="2" fill={["var(--accent)", "var(--green)", "var(--yellow)", "var(--primary)"][i]} />
-            <rect x="22" y={y + 1} width="52" height="6" rx="3" fill="var(--border)" />
-          </g>
-        ))}
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 80 64" width="100%" height="64">
-      {[0, 1, 2].map((row) =>
-        [0, 1, 2, 3].map((col) => (
-          <rect key={`${row}-${col}`} x={4 + col * 19} y={4 + row * 20} width="15" height="14" rx="3"
-            fill={(row + col) % 3 === 0 ? "var(--accent)" : (row + col) % 3 === 1 ? "var(--green)" : "#EFEFEF"} opacity={(row + col) % 3 === 2 ? 1 : 0.8} />
-        ))
-      )}
-    </svg>
-  );
-}
 
 function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
   // 알림 설정은 계정(profiles)에 저장하고 localStorage로도 백업해요.
@@ -3905,8 +3856,6 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
   const [pushBlocked, setPushBlocked] = useState(false);
   const [leadMinutes, setLeadMinutes] = useState(() => Number(localStorage.getItem("bboggl_push_lead")) || 10);
   const [pushLoaded, setPushLoaded] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState("free");
-  const [selectedFormat, setSelectedFormat] = useState("circle");
 
   useEffect(() => {
     let cancelled = false;
@@ -4004,24 +3953,6 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
         .chip.active{ background:var(--primary); border-color:var(--primary); color:#fff; }
         .chip:disabled{ opacity:.4; cursor:not-allowed; }
 
-        .plan-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
-        .plan-card{ border:1.5px solid var(--border); border-radius:14px; padding:18px; cursor:pointer; position:relative; transition:.12s; }
-        .plan-card:hover{ border-color:var(--accent); }
-        .plan-card.selected{ border-color:var(--primary); box-shadow:0 0 0 1.5px var(--primary); }
-        .plan-card.highlight{ background:linear-gradient(180deg, rgba(74,21,75,0.04), transparent); }
-        .plan-badge{ position:absolute; top:-10px; right:14px; background:var(--yellow); color:#1D1C1D;
-          font-size:10px; font-weight:700; padding:3px 8px; border-radius:10px; display:flex; align-items:center; gap:3px; }
-        .plan-name{ font-size:14px; font-weight:700; }
-        .plan-price{ font-size:20px; font-weight:700; margin-top:6px; }
-        .plan-price span{ font-size:11px; font-weight:600; color:#8a888a; }
-        .plan-desc{ font-size:11.5px; color:#8a888a; margin-top:4px; }
-        .plan-features{ margin-top:12px; display:flex; flex-direction:column; gap:6px; }
-        .plan-features div{ display:flex; align-items:flex-start; gap:6px; font-size:11px; color:#5c5a5c; }
-        .plan-features svg{ color:var(--green); flex-shrink:0; margin-top:1px; }
-        .plan-select-check{ position:absolute; top:14px; right:14px; width:18px; height:18px; border-radius:50%;
-          border:1.5px solid var(--border); display:flex; align-items:center; justify-content:center; color:#fff; }
-        .plan-card.selected .plan-select-check{ background:var(--primary); border-color:var(--primary); }
-
         .test-notif-row{ display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap; }
         .test-notif-btn{
           border:1.5px solid var(--border); background:#fff; border-radius:9px; padding:8px 14px;
@@ -4034,16 +3965,6 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
         .test-notif-msg.bad{ color:#E01E5A; }
         .push-hint{ margin-top:10px; font-size:11.5px; line-height:1.6; color:#8a888a; word-break:keep-all; }
 
-        .format-note{ font-size:11.5px; color:#8a888a; margin:14px 0 10px; }
-        .format-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-        .format-card{ border:1.5px solid var(--border); border-radius:12px; padding:12px; cursor:pointer; text-align:center; }
-        .format-card:hover{ border-color:var(--accent); }
-        .format-card.selected{ border-color:var(--primary); box-shadow:0 0 0 1.5px var(--primary); }
-        .format-card .fname{ font-size:11.5px; font-weight:600; margin-top:8px; }
-
-        .backend-note{ display:flex; gap:8px; align-items:flex-start; background:#FFF8E8; border:1px solid #F0DFAE;
-          border-radius:10px; padding:12px 14px; font-size:11.5px; color:#7A5D1F; line-height:1.5; margin-top:16px; }
-
         .account-row{ display:flex; align-items:center; gap:12px; }
         .avatar{ width:44px; height:44px; border-radius:50%; background:var(--primary); color:#fff;
           display:flex; align-items:center; justify-content:center; }
@@ -4052,10 +3973,6 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
         .logout-btn{ margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:9px 14px;
           border-radius:10px; border:1.5px solid var(--border); background:#fff; cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text); }
         .logout-btn:hover{ border-color:#E01E5A; color:#E01E5A; }
-
-        @media (max-width: 640px){
-          .plan-grid, .format-grid{ grid-template-columns:1fr; }
-        }
       `}</style>
 
       <div className="set-topbar">
@@ -4067,7 +3984,7 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
         {/* 알림 */}
         <div className="card">
           <div className="card-head"><SettingsIcon path={settingsIcons.bell} size={17} /><h2>알림</h2></div>
-          <p className="card-sub">구독 여부와 관계없이 브라우저 푸시 알림으로만 동작해요. 카카오톡 등 메신저 알림은 구독 플랜의 별도 기능이에요.</p>
+          <p className="card-sub">일정이 시작하기 전에 브라우저 알림으로 알려드려요.</p>
 
           <div className="row">
             <div>
@@ -4104,44 +4021,8 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
           </p>
         </div>
 
-        {/* 구독 미리보기 */}
-        <div className="card">
-          <div className="card-head"><SettingsIcon path={settingsIcons.crown} size={17} /><h2>구독 미리보기</h2></div>
-          <p className="card-sub">요금제를 미리 둘러보고 골라보세요. 실제 결제·메신저 발송 연동은 PART 2(백엔드)에서 진행돼요.</p>
-
-          <div className="plan-grid">
-            {PLANS.map((p) => (
-              <div key={p.id} className={`plan-card ${p.highlight ? "highlight" : ""} ${selectedPlan === p.id ? "selected" : ""}`} onClick={() => setSelectedPlan(p.id)}>
-                {p.highlight && <span className="plan-badge"><SettingsIcon path={settingsIcons.crown} size={10} />인기</span>}
-                <div className="plan-select-check">{selectedPlan === p.id && <SettingsIcon path={settingsIcons.check} size={11} />}</div>
-                <div className="plan-name">{p.name}</div>
-                <div className="plan-price">{p.price === 0 ? "무료" : p.price.toLocaleString()}{p.price > 0 && <span> 원/월</span>}</div>
-                <div className="plan-desc">{p.desc}</div>
-                <div className="plan-features">
-                  {p.features.map((f, i) => <div key={i}><SettingsIcon path={settingsIcons.check} size={12} />{f}</div>)}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {selectedPlan === "premium" && (
-            <>
-              <div className="format-note">프리미엄에서 받을 이미지 시간표 양식을 골라보세요</div>
-              <div className="format-grid">
-                {FORMATS.map((f) => (
-                  <div key={f.id} className={`format-card ${selectedFormat === f.id ? "selected" : ""}`} onClick={() => setSelectedFormat(f.id)}>
-                    <FormatPreview id={f.id} />
-                    <div className="fname">{f.name}</div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className="backend-note">
-            ⚠️ 지금은 요금제·양식을 "선택해보는" 화면만 동작해요. 실제 결제(PG 연동)와 매일 아침 카카오톡 발송은 백엔드 작업이 필요해서, 그 부분은 진행 시점을 먼저 여쭤보고 진행할게요.
-          </div>
-        </div>
+        {/* 구독 미리보기 카드는 실제 유료 시스템이 없어서 내려뒀어요.
+            결제(PG)와 메신저 발송이 실제로 붙는 시점에 git 히스토리(691b944)에서 되살리면 됩니다. */}
 
         {/* 계정 */}
         <div className="card">
