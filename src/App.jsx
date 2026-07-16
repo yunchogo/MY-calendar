@@ -162,6 +162,8 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
           color:var(--text);
           background:var(--bg);
           min-height:100vh;
+          /* 한글이 좁은 화면에서 글자 단위로 쪼개지지 않게 — 띄어쓰기 기준으로만 줄바꿈 */
+          word-break:keep-all;
         }
 
         h1,h2,h3{font-weight:700; margin:0;}
@@ -181,6 +183,7 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
           display:inline-flex;
           align-items:center;
           gap:8px;
+          white-space:nowrap;
         }
         .btn:hover{filter:brightness(1.12);}
         .btn.ghost{
@@ -287,11 +290,12 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
           display:flex; gap:4px; margin-bottom:6px;
         }
         .calendar-cell{
-          flex:1; height:34px; border-radius:6px;
+          flex:1; min-width:0; height:34px; border-radius:6px;
           background:#F5F5F5;
           font-size:9px; color:#fff; font-weight:600;
           display:flex; align-items:center; justify-content:center;
           text-align:center; padding:2px;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
         }
 
         /* --- 기능 섹션 --- */
@@ -376,7 +380,7 @@ function LandingPage({ onStart = () => {}, onLogin = () => {} }) {
           display:flex; align-items:center; justify-content:center; gap:18px;
           border-top:1px solid var(--border); font-size:13px; color:#8a888a;
         }
-        .landing-footer a{ color:#8a888a; text-decoration:none; }
+        .landing-footer a{ color:#8a888a; text-decoration:none; white-space:nowrap; }
         .landing-footer a:hover{ color:var(--primary); text-decoration:underline; }
 
         /* --- 반응형 --- */
@@ -2947,7 +2951,7 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&family=Archivo+Black&family=Baloo+2:wght@700;800&display=swap');
         :root{ --accent:#1264A3; --green:#2EB67D; --yellow:#ECB22E; --text:#1D1C1D; --bg:#FFFFFF; }
         *{box-sizing:border-box;}
-        .cal-root{ font-family:'Poppins',sans-serif; color:var(--text); background:var(--page-bg); min-height:100vh; }
+        .cal-root{ font-family:'Poppins',sans-serif; color:var(--text); background:var(--page-bg); min-height:100vh; word-break:keep-all; }
         h1,h2,h3{font-weight:700; margin:0;}
         button{font-family:inherit;}
 
@@ -2979,7 +2983,7 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
         .view-nav-stack{ display:flex; flex-direction:column; align-items:center; gap:7px; }
         .view-switch{ display:flex; gap:3px; background:#F0F0F0; border-radius:9px; padding:3px; }
         .view-switch button{ border:none; background:transparent; cursor:pointer; padding:4px 14px;
-          border-radius:7px; font-weight:600; font-size:12px; color:#8a888a; transition:.15s; }
+          border-radius:7px; font-weight:600; font-size:12px; color:#8a888a; transition:.15s; white-space:nowrap; }
         .view-switch button.active{ background:#fff; color:var(--primary); box-shadow:0 1px 3px rgba(0,0,0,0.1); }
         .month-nav{ display:flex; align-items:center; gap:10px; }
         .month-label{ font-size:16px; font-weight:700; min-width:92px; text-align:center; }
