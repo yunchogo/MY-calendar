@@ -3934,6 +3934,27 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
     updateProfile({ push_enabled: pushEnabled, push_lead_minutes: leadMinutes });
   }, [pushEnabled, leadMinutes, pushLoaded]);
 
+  // 알림이 진짜 뜨는지 바로 확인할 수 있게 해줘요.
+  // (일정 알림은 "시작 N분 전"에만 울려서, 안 뜰 때 권한 문제인지 조건 문제인지 구분이 안 됐어요)
+  const [testResult, setTestResult] = useState(null);
+  const sendTestNotification = () => {
+    if (typeof Notification === "undefined") {
+      setTestResult({ ok: false, msg: "이 브라우저는 알림을 지원하지 않아요." });
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      setTestResult({ ok: false, msg: "알림 권한이 없어요. 주소창 왼쪽 자물쇠에서 알림을 허용해주세요." });
+      return;
+    }
+    try {
+      const n = new Notification("테스트 알림이에요", { body: "이렇게 일정 시작 전에 알려드릴게요." });
+      n.onerror = () => setTestResult({ ok: false, msg: "알림을 띄우지 못했어요. 시스템 알림 설정을 확인해주세요." });
+      setTestResult({ ok: true, msg: "보냈어요! 화면 오른쪽 아래를 확인해보세요." });
+    } catch {
+      setTestResult({ ok: false, msg: "알림을 띄우지 못했어요. 시스템 알림 설정을 확인해주세요." });
+    }
+  };
+
   const togglePush = async () => {
     if (pushEnabled) { setPushEnabled(false); return; }
     if (typeof Notification === "undefined") { setPushBlocked(true); return; }
@@ -4001,6 +4022,18 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
           border:1.5px solid var(--border); display:flex; align-items:center; justify-content:center; color:#fff; }
         .plan-card.selected .plan-select-check{ background:var(--primary); border-color:var(--primary); }
 
+        .test-notif-row{ display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap; }
+        .test-notif-btn{
+          border:1.5px solid var(--border); background:#fff; border-radius:9px; padding:8px 14px;
+          font-family:inherit; font-size:12.5px; font-weight:700; color:var(--primary); cursor:pointer; transition:.15s;
+        }
+        .test-notif-btn:hover:not(:disabled){ border-color:var(--primary); }
+        .test-notif-btn:disabled{ color:#c4c2c4; cursor:not-allowed; }
+        .test-notif-msg{ font-size:11.5px; font-weight:600; }
+        .test-notif-msg.ok{ color:#2EB67D; }
+        .test-notif-msg.bad{ color:#E01E5A; }
+        .push-hint{ margin-top:10px; font-size:11.5px; line-height:1.6; color:#8a888a; word-break:keep-all; }
+
         .format-note{ font-size:11.5px; color:#8a888a; margin:14px 0 10px; }
         .format-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
         .format-card{ border:1.5px solid var(--border); border-radius:12px; padding:12px; cursor:pointer; text-align:center; }
@@ -4057,6 +4090,18 @@ function SettingsPage({ onBack = () => {}, onLogout = () => {} }) {
               ))}
             </div>
           </div>
+
+          <div className="test-notif-row">
+            <button className="test-notif-btn" onClick={sendTestNotification} disabled={!pushEnabled}>
+              테스트 알림 보내기
+            </button>
+            {testResult && <span className={`test-notif-msg ${testResult.ok ? "ok" : "bad"}`}>{testResult.msg}</span>}
+          </div>
+          <p className="push-hint">
+            알림은 <strong>이 사이트를 열어둔 동안</strong>, 일정 시작 {leadMinutes}분 전에 울려요.
+            탭을 완전히 닫으면 오지 않아요. 테스트 알림이 안 보이면 윈도우 <strong>집중 지원(방해 금지)</strong>이
+            켜져 있거나, 브라우저 알림이 시스템 설정에서 꺼져 있을 수 있어요.
+          </p>
         </div>
 
         {/* 구독 미리보기 */}
