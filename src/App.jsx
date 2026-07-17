@@ -2212,7 +2212,19 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
     if (!day) return [];
     const key = isoDate(y, mNum, day);
     return entries
-      .filter((e) => (e.type === "recurring" ? e.daysOfWeek.includes(weekday) : e.date && e.date.month === mNum && e.date.day === day))
+      .filter((e) => {
+        if (e.type === "recurring") {
+          if (!e.daysOfWeek.includes(weekday)) return false;
+          // "이 달만" 반복 일정(eventDate에 그 달이 박혀 있음)은 그 달에만 표시해요.
+          // eventDate가 없으면 예전처럼 모든 달에 반복됩니다.
+          if (e.eventDate) {
+            const [ey, em] = e.eventDate.split("-").map(Number);
+            if (ey !== y || em !== mNum) return false;
+          }
+          return true;
+        }
+        return e.date && e.date.month === mNum && e.date.day === day;
+      })
       .map((e) => {
         if (e.type === "recurring" && e.overrides && e.overrides[key]) {
           const ov = e.overrides[key];
@@ -3712,7 +3724,7 @@ function CalendarPage({ onLogout = () => {}, onOpenSettings = () => {} }) {
                 </button>
                 <div className="entry-text">
                   {e.text}
-                  <div className="entry-meta">{e.type === "recurring" ? "반복 일정" : "특별 일정"}{e.timeLabel ? ` · ${e.timeLabel}` : ""}</div>
+                  <div className="entry-meta">{e.type === "recurring" ? (e.eventDate ? `반복 일정 · ${Number(e.eventDate.split("-")[1])}월만` : "반복 일정") : "특별 일정"}{e.timeLabel ? ` · ${e.timeLabel}` : ""}</div>
                 </div>
                 <button className="entry-del" onClick={() => removeEntry(e.id)} aria-label="삭제"><Icon path={icons.trash} size={15} /></button>
                 {colorPickerId === e.id && (

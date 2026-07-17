@@ -227,41 +227,27 @@ function sundaysIn(year: number, month?: number): string[] {
   return out;
 }
 
-/** 해당 달에서 지정한 요일들에 해당하는 날짜를 모두 돌려줍니다 ("이 달만" 모드에서 반복 일정을 펼칠 때 사용). */
-function datesForWeekdaysInMonth(year: number, month: number, dow: number[]): string[] {
-  const out: string[] = [];
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  for (let d = 1; d <= lastDay; d++) {
-    if (!dow.includes(new Date(Date.UTC(year, month - 1, d)).getUTCDay())) continue;
-    out.push(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
-  }
-  return out;
-}
-
 async function executeOperation(
   supabase: any,
   op: any,
   ctx: { viewYear: number; viewMonth: number; scope: "month" | "all" }
 ) {
   if (op.op === "create") {
-    // "이 달만" 모드에서는 반복 일정을 보고 있는 달 안의 개별 날짜로 펼쳐서 저장해요.
-    // recurring으로 저장하면 요일만 보고 모든 달에 나타나기 때문이에요.
+    // "이 달만" 모드의 반복 일정: 반복 행 하나로 저장하되, event_date에 그 달의 1일을 박아
+    // "이 달 한정"임을 표시해요. 클라이언트 eventsForDate가 event_date의 연·월과 같은 달에만 표시합니다.
+    // (예전엔 날짜마다 개별 special로 펼쳐서 목록에 수십 개가 떴음 — 그 문제를 없앰)
     if (ctx.scope === "month" && op.type === "recurring" && Array.isArray(op.days_of_week) && op.days_of_week.length) {
-      const dates = datesForWeekdaysInMonth(ctx.viewYear, ctx.viewMonth, op.days_of_week);
-      const rows = [];
-      for (const d of dates) {
-        const { data } = await supabase
-          .from("events")
-          .insert({
-            type: "special", event_date: d,
-            start_minutes: op.start_minutes, end_minutes: op.end_minutes,
-            label: op.label, raw_text: op.text || op.label,
-          })
-          .select("*, event_overrides(*)")
-          .single();
-        if (data) rows.push(data);
-      }
-      return { op: "create", rows, expandedToMonth: dates.length };
+      const monthAnchor = `${ctx.viewYear}-${String(ctx.viewMonth).padStart(2, "0")}-01`;
+      const { data, error } = await supabase
+        .from("events")
+        .insert({
+          type: "recurring", days_of_week: op.days_of_week, event_date: monthAnchor,
+          start_minutes: op.start_minutes, end_minutes: op.end_minutes,
+          label: op.label, raw_text: op.text || op.label,
+        })
+        .select("*, event_overrides(*)")
+        .single();
+      return { op: "create", rows: data ? [data] : [], error, monthScoped: monthAnchor };
     }
     if (op.type === "special" && Array.isArray(op.dates) && op.dates.length > 1) {
       const rows = [];
