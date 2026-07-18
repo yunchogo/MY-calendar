@@ -238,16 +238,23 @@ async function executeOperation(
     // (예전엔 날짜마다 개별 special로 펼쳐서 목록에 수십 개가 떴음 — 그 문제를 없앰)
     if (ctx.scope === "month" && op.type === "recurring" && Array.isArray(op.days_of_week) && op.days_of_week.length) {
       const monthAnchor = `${ctx.viewYear}-${String(ctx.viewMonth).padStart(2, "0")}-01`;
-      const { data, error } = await supabase
-        .from("events")
-        .insert({
-          type: "recurring", days_of_week: op.days_of_week, event_date: monthAnchor,
-          start_minutes: op.start_minutes, end_minutes: op.end_minutes,
-          label: op.label, raw_text: op.text || op.label,
-        })
-        .select("*, event_overrides(*)")
-        .single();
-      return { op: "create", rows: data ? [data] : [], error, monthScoped: monthAnchor };
+      const base = {
+        type: "recurring", days_of_week: op.days_of_week,
+        start_minutes: op.start_minutes, end_minutes: op.end_minutes,
+        label: op.label, raw_text: op.text || op.label,
+      };
+      // 월 한정: event_date에 그 달 1일을 넣어 표시. 만약 DB 제약(chk_type_fields)이 아직
+      // 반복+event_date를 허용하지 않는 구 스키마면 insert가 실패하므로,
+      // 그때는 일반 반복으로라도 추가해 일정이 유실되지 않게 합니다(schema_update_6 실행 후엔 월 한정으로 저장됨).
+      let { data, error } = await supabase
+        .from("events").insert({ ...base, event_date: monthAnchor })
+        .select("*, event_overrides(*)").single();
+      if (error) {
+        ({ data, error } = await supabase
+          .from("events").insert(base)
+          .select("*, event_overrides(*)").single());
+      }
+      return { op: "create", rows: data ? [data] : [], error };
     }
     if (op.type === "special" && Array.isArray(op.dates) && op.dates.length > 1) {
       const rows = [];
