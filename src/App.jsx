@@ -1385,6 +1385,11 @@ function fallbackLabel(text, timeSpan) {
   let label = text;
   if (timeSpan) label = label.replace(timeSpan.matchedStr, " ");
   label = label
+    // 날짜 표현 제거(7월 27일 / 27일 / 7/27) — 날짜는 라벨이 아니라 날짜 칸에 들어가요
+    .replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, " ")
+    .replace(/\d{1,2}\s*\/\s*\d{1,2}/g, " ")
+    .replace(/\d{1,2}\s*일(?!주)/g, " ")
+    .replace(/오늘|내일모레|내일|모레|글피|이번\s*주말?|다음\s*주말?|이번\s*달|다음\s*달/g, " ")
     .replace(/평일|주말|매주|요일|일정|나는|저는|그리고|하고|퇴근\s*후에|후에|약속이?\s*있어|약속|있어|일을\s*해|일해|해요?\.?$/g, " ")
     .replace(/[,.]/g, " ")
     .replace(/\s+/g, " ")
